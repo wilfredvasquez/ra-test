@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Galaxia en RA — Prototipo</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    .info {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      background: rgba(0,0,0,0.7); color: white; padding: 10px;
+      border-radius: 8px; z-index: 1000; font-size: 14px;
+    }
+  </style>
+
+  <script>
+    // Componente personalizado de A-Frame para generar una galaxia espiral con partículas
+    AFRAME.registerComponent('galaxia', {
+      schema: {
+        cantidad: { type: 'number', default: 8000 },
+        radio: { type: 'number', default: 1.2 },
+        ramas: { type: 'number', default: 4 },
+        espiral: { type: 'number', default: 1.5 },
+        aleatoriedad: { type: 'number', default: 0.3 },
+        colorInterior: { type: 'color', default: '#ff9d4a' },
+        colorExterior: { type: 'color', default: '#4a7dff' }
+      },
+
+      init: function () {
+        const data = this.data;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(data.cantidad * 3);
+        const colors = new Float32Array(data.cantidad * 3);
+
+        const colorInterior = new THREE.Color(data.colorInterior);
+        const colorExterior = new THREE.Color(data.colorExterior);
+
+        for (let i = 0; i < data.cantidad; i++) {
+          const i3 = i * 3;
+
+          // Distancia al centro: distribución que concentra estrellas hacia el núcleo
+          const radio = Math.pow(Math.random(), 2) * data.radio;
+
+          // Ángulo según la rama espiral asignada
+          const anguloRama = ((i % data.ramas) / data.ramas) * Math.PI * 2;
+          const anguloEspiral = radio * data.espiral;
+
+          // Dispersión aleatoria (las estrellas no están exactamente sobre la rama)
+          const aleatorioX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * data.aleatoriedad * radio;
+          const aleatorioY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * data.aleatoriedad * radio * 0.3;
+          const aleatorioZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * data.aleatoriedad * radio;
+
+          positions[i3]     = Math.cos(anguloRama + anguloEspiral) * radio + aleatorioX;
+          positions[i3 + 1] = aleatorioY;
+          positions[i3 + 2] = Math.sin(anguloRama + anguloEspiral) * radio + aleatorioZ;
+
+          // Color: interpolación entre color del centro y color de los bordes
+          const colorMezcla = colorInterior.clone();
+          colorMezcla.lerp(colorExterior, radio / data.radio);
+
+          colors[i3]     = colorMezcla.r;
+          colors[i3 + 1] = colorMezcla.g;
+          colors[i3 + 2] = colorMezcla.b;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+          size: 0.015,
+          sizeAttenuation: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          vertexColors: true,
+          transparent: true
+        });
+
+        this.puntos = new THREE.Points(geometry, material);
+        this.el.setObject3D('mesh', this.puntos);
+      },
+
+      tick: function (time, deltaTime) {
+        // Rotación lenta de la galaxia
+        if (this.puntos) {
+          this.puntos.rotation.y += deltaTime * 0.0002;
+        }
+      }
+    });
+
+    // Componente para el núcleo brillante (esfera luminosa central)
+    AFRAME.registerComponent('nucleo-brillante', {
+      init: function () {
+        const geometry = new THREE.SphereGeometry(0.08, 16, 16);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xffdd88,
+          transparent: true,
+          opacity: 0.6,
+          blending: THREE.AdditiveBlending
+        });
+        const nucleo = new THREE.Mesh(geometry, material);
+        this.el.setObject3D('nucleo', nucleo);
+      }
+    });
+  </script>
+</head>
+<body>
+
+<div class="info">
+  <strong>Galaxia espiral en RA</strong><br>
+  Apunta la cámara al marcador "Hiro" para ver la galaxia.
+</div>
+
+<a-scene
+  embedded
+  arjs="sourceType: webcam; debugUIEnabled: false;"
+  renderer="logarithmicDepthBuffer: true; alpha: true;"
+  vr-mode-ui="enabled: false">
+
+  <a-marker preset="hiro">
+
+    <!-- Contenedor: levanta la galaxia sobre el marcador y la inclina ligeramente -->
+    <a-entity position="0 0.4 0" rotation="20 0 0">
+
+      <!-- Las partículas que forman los brazos espirales -->
+      <a-entity galaxia="cantidad: 8000; radio: 1.2; ramas: 4; espiral: 1.5; aleatoriedad: 0.3; colorInterior: #ff9d4a; colorExterior: #4a7dff"></a-entity>
+
+      <!-- El núcleo brillante en el centro -->
+      <a-entity nucleo-brillante></a-entity>
+
+    </a-entity>
+
+    <!-- Etiqueta -->
+    <a-text value="Galaxia espiral\n(generada proceduralmente)"
+            position="0 -0.3 0"
+            align="center"
+            color="#fff"
+            width="3"></a-text>
+
+  </a-marker>
+
+  <a-entity camera></a-entity>
+
+</a-scene>
+
+</body>
+</html>
