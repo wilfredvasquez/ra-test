@@ -19,9 +19,9 @@
     // Componente personalizado de A-Frame para generar una galaxia espiral con partículas
     AFRAME.registerComponent('galaxia', {
       schema: {
-        cantidad: { type: 'number', default: 8000 },
+        cantidad: { type: 'number', default: 30000 },
         radio: { type: 'number', default: 1.2 },
-        ramas: { type: 'number', default: 4 },
+        ramas: { type: 'number', default: 5 },
         espiral: { type: 'number', default: 1.5 },
         aleatoriedad: { type: 'number', default: 0.3 },
         colorInterior: { type: 'color', default: '#ff9d4a' },
@@ -89,6 +89,68 @@
       }
     });
 
+    // Componente para un campo de estrellas de fondo (esfera de puntos alrededor)
+    AFRAME.registerComponent('estrellas-fondo', {
+      schema: {
+        cantidad: { type: 'number', default: 4000 },
+        radioMin: { type: 'number', default: 2.5 },
+        radioMax: { type: 'number', default: 6 }
+      },
+
+      init: function () {
+        const data = this.data;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(data.cantidad * 3);
+        const colors = new Float32Array(data.cantidad * 3);
+        const color = new THREE.Color();
+
+        for (let i = 0; i < data.cantidad; i++) {
+          const i3 = i * 3;
+
+          // Posición aleatoria sobre una capa esférica que envuelve la galaxia
+          const radio = data.radioMin + Math.random() * (data.radioMax - data.radioMin);
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+
+          positions[i3]     = radio * Math.sin(phi) * Math.cos(theta);
+          positions[i3 + 1] = radio * Math.cos(phi);
+          positions[i3 + 2] = radio * Math.sin(phi) * Math.sin(theta);
+
+          // Estrellas mayormente blancas con leves tintes de color
+          const tono = 0.55 + Math.random() * 0.1;
+          const brillo = 0.6 + Math.random() * 0.4;
+          color.setHSL(tono, 0.2 * Math.random(), brillo);
+
+          colors[i3]     = color.r;
+          colors[i3 + 1] = color.g;
+          colors[i3 + 2] = color.b;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+          size: 0.012,
+          sizeAttenuation: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9
+        });
+
+        this.puntos = new THREE.Points(geometry, material);
+        this.el.setObject3D('estrellas', this.puntos);
+      },
+
+      tick: function (time, deltaTime) {
+        // Giro muy lento e independiente para dar profundidad
+        if (this.puntos) {
+          this.puntos.rotation.y += deltaTime * 0.00005;
+        }
+      }
+    });
+
     // Componente para el núcleo brillante (esfera luminosa central)
     AFRAME.registerComponent('nucleo-brillante', {
       init: function () {
@@ -124,7 +186,10 @@
     <a-entity position="0 0.4 0" rotation="20 0 0">
 
       <!-- Las partículas que forman los brazos espirales -->
-      <a-entity galaxia="cantidad: 8000; radio: 1.2; ramas: 4; espiral: 1.5; aleatoriedad: 0.3; colorInterior: #ff9d4a; colorExterior: #4a7dff"></a-entity>
+      <a-entity galaxia="cantidad: 30000; radio: 1.2; ramas: 5; espiral: 1.5; aleatoriedad: 0.3; colorInterior: #ff9d4a; colorExterior: #4a7dff"></a-entity>
+
+      <!-- Campo de estrellas de fondo que envuelve la galaxia -->
+      <a-entity estrellas-fondo="cantidad: 4000; radioMin: 2.5; radioMax: 6"></a-entity>
 
       <!-- El núcleo brillante en el centro -->
       <a-entity nucleo-brillante></a-entity>
